@@ -10,12 +10,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script>
   /* =====================================================================
-     ONE-TIME SETUP: paste your Firebase Realtime Database URL between the
-     quotes, e.g. "https://fifa-night-1234-default-rtdb.asia-southeast1.firebasedatabase.app"
-     Leave it empty and the site still works, but scores stay on one device.
+     ONE-TIME SETUP
+     owner:    the Google (Gmail) address of the person who controls the site.
+     firebase: paste the web-app config from Firebase (Project settings → Your apps).
+     Leave apiKey empty and the site still works, but scores stay on one device.
      ===================================================================== */
-  window.FIFA_DB_URL = "";
+  window.RAMA_CUP = {
+    owner: "11prakhar@gmail.com",
+    firebase: {
+      apiKey: "AIzaSyD0FofelhxDUv5xQsz-_ZPooSiDZaS20Vo",
+      authDomain: "rama-cup.firebaseapp.com",
+      databaseURL: "https://rama-cup-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "rama-cup",
+      appId: "1:965341686078:web:3f6d0de7d5ae2e3f3a246f"
+    }
+  };
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   :root {
     --bg: #f5f1ea; --card: #ffffff; --ink: #241c10; --muted: #73695a; --line: #e2d9cb;
@@ -90,6 +102,17 @@
   tbody tr.leader td { background: color-mix(in srgb, var(--gold) 14%, var(--card)); }
   tbody tr.leader td.pos { color: var(--gold); font-weight: 800; }
   tbody tr.leader td.name::after { content: " 🏆"; font-size: 13px; }
+  tbody tr.me td { background: color-mix(in srgb, var(--pitch) 16%, var(--card)); }
+  tbody tr.me td.name { color: var(--pitch); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  .you { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: var(--pitch); color: var(--pitch-ink); vertical-align: 2px; }
+  .match.mine { border-color: var(--pitch); box-shadow: inset 4px 0 0 var(--pitch); }
+  .team .is-me { color: var(--pitch); text-decoration: underline; text-underline-offset: 3px; }
+  .sits .is-me { font-weight: 700; color: var(--pitch); }
+  .mebar { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+  .mebar label { font-weight: 600; font-size: 15px; white-space: nowrap; }
+  .mebar select { flex: 1; padding: 8px 10px; }
+  .mynext { font-size: 14px; color: var(--muted); margin: -4px 2px 12px; }
+  .mynext b { color: var(--ink); }
   .legend { color: var(--muted); font-size: 12.5px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
 
   h2 { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 22px; margin: 26px 2px 10px; }
@@ -123,6 +146,18 @@
   .history li:first-child { border-top: 0; }
   .history li span { color: var(--muted); }
   [hidden] { display: none !important; }
+  .account { margin-top: 6px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .account button { font-size: 13px; padding: 6px 10px; }
+  .account .who { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .role { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .role.edit { background: var(--pitch); color: var(--pitch-ink); }
+  body.ro .edit-only { display: none !important; }
+  body:not(.ro) .view-only { display: none !important; }
+  .score input:disabled { opacity: 1; -webkit-text-fill-color: var(--ink); background: transparent; border-color: transparent; }
+  .editors { list-style: none; margin: 10px 0 0; padding: 0; }
+  .editors li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; overflow-wrap: anywhere; }
+  .editors li:first-child { border-top: 0; }
+  .editors button { font-size: 13px; padding: 6px 10px; flex: none; }
   @media (prefers-reduced-motion: reduce) { .live.on i { animation: none; } }
 </style>
 </head>
@@ -133,11 +168,17 @@
     <div class="side">
       <div class="progress" id="progress" hidden><b id="played">0</b>/<span id="total">0</span> played</div>
       <div class="live" id="live"><i></i><span id="liveText">Connecting</span></div>
+      <div class="account" id="account" hidden></div>
     </div>
   </header>
 
   <!-- ============ SETUP ============ -->
   <section id="setup" hidden>
+    <div class="card view-only">
+      <h3>No match running right now</h3>
+      <p class="hint" style="margin:0">The fixtures and table appear here as soon as the organiser starts the night.</p>
+    </div>
+    <div class="edit-only">
     <div class="card">
       <h3>Who's playing tonight?</h3>
       <p class="hint">Tap to select. Add anyone new below.</p>
@@ -173,6 +214,7 @@
         <button type="button" class="primary" id="startBtn">Start the night</button>
       </div>
     </div>
+    </div>
 
     <div id="historyWrap" hidden>
       <h2>Past nights</h2>
@@ -182,6 +224,8 @@
 
   <!-- ============ NIGHT ============ -->
   <section id="night" hidden>
+    <div class="mebar"><label for="meSel">I am</label><select id="meSel" aria-label="Which player are you?"></select></div>
+    <div class="mynext" id="myNext" hidden></div>
     <div class="champ" id="champ"><div><div class="champ-k">Champion</div><div class="champ-n" id="champName"></div><div class="champ-s" id="champStat"></div></div></div>
     <div class="board">
       <div class="board-scroll">
@@ -200,7 +244,21 @@
 
     <div class="actions">
       <span class="muted" id="saveState"></span>
-      <button type="button" class="danger" id="endBtn">End night &amp; start new</button>
+      <button type="button" class="danger edit-only" id="endBtn">End night &amp; start new</button>
+    </div>
+  </section>
+
+  <!-- ============ OWNER: who can edit ============ -->
+  <section id="admin" hidden>
+    <h2>Who can edit</h2>
+    <div class="card">
+      <p class="hint">Everyone with the link can view. Only you and the Google accounts below can enter scores and start nights.</p>
+      <form class="add" id="editorForm">
+        <input id="editorEmail" type="email" placeholder="friend@gmail.com" autocomplete="off" aria-label="Editor's Google email">
+        <button type="submit">Allow</button>
+      </form>
+      <ul class="editors" id="editorList"></ul>
+      <div class="err" id="editorErr"></div>
     </div>
   </section>
 </div>
@@ -214,7 +272,12 @@
   var HOST = "Prakhar";
   var HOST_PARTNERS = ["Abhay", "Dhruv", "Nilay"];
   var HOST_SHARE = 0.8;
-  var DB = (window.FIFA_DB_URL || "").replace(/\/+$/, "");
+  var CFG = window.RAMA_CUP || {}, FB = CFG.firebase || {};
+  var OWNER = String(CFG.owner || "").trim().toLowerCase();
+  var DB = String(FB.databaseURL || "").replace(/\/+$/, "");
+  var AUTH_ON = !!(DB && FB.apiKey && window.firebase && firebase.auth);
+  var auth = null, user = null, isOwner = false;
+  var canEdit = !AUTH_ON;              // no sign-in configured: anyone with the page can edit
   var ROOT = "fifa";
   var LOCAL_KEY = "rama-cup-v1";
 
@@ -230,13 +293,18 @@
     live: !!DB,
     url: function (path) { return DB + "/" + ROOT + (path ? "/" + path : "") + ".json"; },
     put: function (path, value) {
+      if (!canEdit) return Promise.resolve();
       setByPath(path, value); afterChange();
       if (!this.live) { saveLocal(); return Promise.resolve(); }
       setSave("Saving…");
-      return fetch(this.url(path), { method: "PUT", body: JSON.stringify(value) }).then(function (r) {
+      var self = this;
+      return token().then(function (t) {
+        return fetch(self.url(path) + (t ? "?auth=" + encodeURIComponent(t) : ""), { method: "PUT", body: JSON.stringify(value) });
+      }).then(function (r) {
+        if (r.status === 401 || r.status === 403) { setSave("You don't have edit access"); throw 0; }
         if (!r.ok) throw new Error(r.status);
         setSave("Saved for everyone");
-      }).catch(function () { setSave("Couldn't save — check your connection"); });
+      }).catch(function (e) { if (e !== 0) setSave("Couldn't save — check your connection"); });
     }
   };
   function setByPath(path, value) {
@@ -252,6 +320,91 @@
   }
   function setSave(t) { $("saveState").textContent = t; }
   function setLive(on, text) { $("live").className = "live" + (on ? " on" : ""); $("liveText").textContent = text; }
+
+  // ------------------------------------------------------------------
+  // Sign-in and roles
+  // ------------------------------------------------------------------
+  function token() { return user ? user.getIdToken() : Promise.resolve(null); }
+  function emailKey(e) { return String(e).trim().toLowerCase().replace(/\./g, "%2E"); }
+
+  function setupAuth() {
+    if (!AUTH_ON) { applyRole(); return; }
+    document.body.classList.add("ro");
+    try { firebase.initializeApp(FB); auth = firebase.auth(); }
+    catch (e) { AUTH_ON = false; canEdit = true; applyRole(); return; }
+    auth.getRedirectResult().catch(function () {});
+    auth.onAuthStateChanged(function (u) { user = u; checkRole(); });
+  }
+  function checkRole() {
+    isOwner = false; canEdit = false;
+    if (!user) { applyRole(); return; }
+    var email = String(user.email || "").toLowerCase();
+    if (OWNER && email === OWNER) { isOwner = true; canEdit = true; applyRole(); loadEditors(); return; }
+    token().then(function (t) {
+      return fetch(DB + "/editors/" + encodeURIComponent(emailKey(email)) + ".json?auth=" + encodeURIComponent(t));
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (v) { canEdit = v === true; applyRole(); })
+      .catch(function () { applyRole(); });
+  }
+  function signIn() {
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function (e) {
+      var code = e && e.code || "";
+      if (code.indexOf("popup") !== -1 || code === "auth/operation-not-supported-in-this-environment") auth.signInWithRedirect(provider);
+    });
+  }
+  function applyRole() {
+    document.body.classList.toggle("ro", !canEdit);
+    var acc = $("account");
+    if (AUTH_ON) {
+      acc.hidden = false; acc.innerHTML = "";
+      if (!user) {
+        var b = document.createElement("button"); b.type = "button"; b.textContent = "Sign in to edit";
+        b.addEventListener("click", signIn); acc.appendChild(b);
+      } else {
+        var who = document.createElement("span"); who.className = "who"; who.textContent = user.email || "Signed in";
+        var role = document.createElement("span"); role.className = "role" + (canEdit ? " edit" : "");
+        role.textContent = isOwner ? "Owner" : canEdit ? "Editor" : "View only";
+        var out = document.createElement("button"); out.type = "button"; out.textContent = "Sign out";
+        out.addEventListener("click", function () { auth.signOut(); });
+        acc.appendChild(who); acc.appendChild(role); acc.appendChild(out);
+      }
+    }
+    $("admin").hidden = !isOwner;
+    afterChange();
+  }
+
+  // ---- owner: manage editors ----
+  function loadEditors() {
+    if (!isOwner) return;
+    token().then(function (t) { return fetch(DB + "/editors.json?auth=" + encodeURIComponent(t)); })
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (list) {
+        var keys = Object.keys(list || {}).filter(function (k) { return list[k] === true; }).sort();
+        var ul = $("editorList"); ul.innerHTML = "";
+        if (!keys.length) { ul.innerHTML = '<li><span class="muted">No other editors yet.</span></li>'; return; }
+        keys.forEach(function (k) {
+          var li = document.createElement("li"), span = document.createElement("span"), btn = document.createElement("button");
+          span.textContent = k.replace(/%2E/g, "."); btn.type = "button"; btn.className = "danger"; btn.textContent = "Remove";
+          btn.addEventListener("click", function () { editorWrite(k, null); });
+          li.appendChild(span); li.appendChild(btn); ul.appendChild(li);
+        });
+      }).catch(function () { $("editorErr").textContent = "Couldn't load the editor list."; });
+  }
+  function editorWrite(key, value) {
+    $("editorErr").textContent = "";
+    token().then(function (t) {
+      return fetch(DB + "/editors/" + encodeURIComponent(key) + ".json?auth=" + encodeURIComponent(t), { method: value ? "PUT" : "DELETE", body: value ? "true" : undefined });
+    }).then(function (r) { if (!r.ok) throw 0; loadEditors(); })
+      .catch(function () { $("editorErr").textContent = "Couldn't save. Check the database rules are set up."; });
+  }
+  $("editorForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("editorEmail").value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { $("editorErr").textContent = "Enter a full email address."; return; }
+    $("editorEmail").value = "";
+    editorWrite(emailKey(v), true);
+  });
 
   function connect() {
     if (!store.live) {
@@ -521,6 +674,36 @@
   }
   function tally(r, gf, ga) { r.p++; r.gf += gf; r.ga += ga; if (gf > ga) r.w++; else if (gf < ga) r.l++; else r.d++; }
 
+  var ME_KEY = "rama-cup-me", me = "";
+  try { me = localStorage.getItem(ME_KEY) || ""; } catch (e) {}
+  $("meSel").addEventListener("change", function () {
+    me = this.value;
+    try { if (me) localStorage.setItem(ME_KEY, me); else localStorage.removeItem(ME_KEY); } catch (e) {}
+    builtFor = null; renderNight();
+  });
+  function renderMe(night) {
+    var sel = $("meSel"), want = [""].concat(night.players).join("|");
+    if (sel.dataset.opts !== want) {
+      sel.innerHTML = '<option value="">Just watching</option>' + night.players.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join("");
+      sel.dataset.opts = want;
+    }
+    var playing = night.players.indexOf(me) !== -1;
+    sel.value = playing ? me : "";
+    var nx = $("myNext");
+    if (!playing) { nx.hidden = true; return; }
+    var next = -1, left = 0;
+    night.fixtures.forEach(function (f, i) {
+      var s = sc(night, i), inIt = f.home.indexOf(me) !== -1 || f.away.indexOf(me) !== -1;
+      if (inIt && (s[0] === null || s[1] === null)) { left++; if (next === -1) next = i; }
+    });
+    nx.hidden = false;
+    if (next === -1) { nx.innerHTML = "<b>You're done for the night.</b> Check the table below."; return; }
+    var f = night.fixtures[next], mySide = f.home.indexOf(me) !== -1 ? f.home : f.away, other = mySide === f.home ? f.away : f.home;
+    var mate = mySide[0] === me ? mySide[1] : mySide[0];
+    nx.innerHTML = "Your next match: <b>Match " + (next + 1) + "</b> with <b>" + esc(mate) + "</b> vs " + esc(other.join(" + ")) +
+      (left > 1 ? " · " + left + " to play" : " · last one");
+  }
+  function nm(p) { return p === me ? '<span class="is-me">' + esc(p) + '</span>' : esc(p); }
   function fixtureHTML(f, i, withInputs, night) {
     var s = night ? sc(night, i) : [null, null];
     function inp(side) {
@@ -528,11 +711,12 @@
       return '<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="99" placeholder="–" aria-label="Match ' + (i + 1) + (side ? " away" : " home") + ' goals" data-i="' + i + '" data-side="' + side + '" value="' + (v === null ? "" : v) + '">';
     }
     var mid = withInputs ? '<div class="score">' + inp(0) + '<span class="dash">–</span>' + inp(1) + '</div>' : '<div class="dash">vs</div>';
-    return '<div class="match" id="' + (withInputs ? "m" : "p") + i + '">' +
+    var mine = !!me && (f.home.indexOf(me) !== -1 || f.away.indexOf(me) !== -1);
+    return '<div class="match' + (mine ? " mine" : "") + '" id="' + (withInputs ? "m" : "p") + i + '">' +
       '<div class="match-top"><div class="match-no">Match ' + (i + 1) + '</div>' +
-      (f.sits && f.sits.length ? '<div class="sits">Sits out <span>' + f.sits.map(esc).join(", ") + '</span></div>' : "") + '</div>' +
-      '<div class="line"><div class="team home"><span>' + esc(f.home[0]) + '</span><span>' + esc(f.home[1]) + '</span></div>' + mid +
-      '<div class="team away"><span>' + esc(f.away[0]) + '</span><span>' + esc(f.away[1]) + '</span></div></div>' +
+      (f.sits && f.sits.length ? '<div class="sits">Sits out <span>' + f.sits.map(nm).join(", ") + '</span></div>' : "") + '</div>' +
+      '<div class="line"><div class="team home"><span>' + nm(f.home[0]) + '</span><span>' + nm(f.home[1]) + '</span></div>' + mid +
+      '<div class="team away"><span>' + nm(f.away[0]) + '</span><span>' + nm(f.away[1]) + '</span></div></div>' +
       (withInputs ? '<div class="result" id="r' + i + '"></div>' : "") + '</div>';
   }
 
@@ -559,6 +743,9 @@
       }
     }
 
+    renderMe(night);
+    var allInputs = $("fixtures").querySelectorAll("input");
+    for (var q = 0; q < allInputs.length; q++) allInputs[q].disabled = !canEdit;
     var list = standings(night), done = 0;
     night.fixtures.forEach(function (f, i) {
       var s = sc(night, i), card = $("m" + i), res = $("r" + i);
@@ -572,7 +759,8 @@
     $("tbody").innerHTML = list.map(function (r, i) {
       var leader = done > 0 && i === 0 && list[1] && (r.pts > list[1].pts || r.gd > list[1].gd || r.gf > list[1].gf);
       var gdc = r.gd > 0 ? "plus" : r.gd < 0 ? "minus" : "";
-      return '<tr class="' + (leader ? "leader" : "") + '"><td class="pos">' + (i + 1) + '</td><td class="name">' + esc(r.name) + '</td>' +
+      var cls = (leader ? "leader" : "") + (r.name === me ? " me" : "");
+      return '<tr class="' + cls + '"><td class="pos">' + (i + 1) + '</td><td class="name">' + esc(r.name) + '</td>' +
         '<td>' + r.p + '</td><td>' + r.w + '</td><td>' + r.d + '</td><td>' + r.l + '</td><td>' + r.gf + '</td><td>' + r.ga + '</td>' +
         '<td class="gd ' + gdc + '">' + (r.gd > 0 ? "+" : "") + r.gd + '</td><td class="pts">' + r.pts + '</td></tr>';
     }).join("");
@@ -595,7 +783,7 @@
 
   var pending = {};
   $("fixtures").addEventListener("input", function (e) {
-    var t = e.target; if (t.tagName !== "INPUT" || !data.current) return;
+    var t = e.target; if (t.tagName !== "INPUT" || !data.current || !canEdit) return;
     var i = +t.dataset.i;
     var row = t.closest(".match").querySelectorAll("input");
     var h = num(row[0].value), a = num(row[1].value);
@@ -639,6 +827,7 @@
   }
 
   window.__fifa = { generate: generate, perPlayerOptions: perPlayerOptions };
+  setupAuth();
   connect();
 })();
 </script>
