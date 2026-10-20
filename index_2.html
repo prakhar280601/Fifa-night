@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rama Cup — 2v2 League</title>
+<meta name="theme-color" content="#92764e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  /* =====================================================================
+     ONE-TIME SETUP: paste your Firebase Realtime Database URL between the
+     quotes, e.g. "https://fifa-night-1234-default-rtdb.asia-southeast1.firebasedatabase.app"
+     Leave it empty and the site still works, but scores stay on one device.
+     ===================================================================== */
+  window.FIFA_DB_URL = "";
+</script>
+<style>
+  :root {
+    --bg: #f5f1ea; --card: #ffffff; --ink: #241c10; --muted: #73695a; --line: #e2d9cb;
+    --pitch: #92764e; --pitch-ink: #ffffff; --gold: #92764e; --win: #2f7d4a; --draw: #8a8172;
+    --loss: #b83a3a; --input: #f7f3ec; --input-focus: #92764e; --sit: #f1ebe0; --chip: #ece4d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13100b; --card: #1d1912; --ink: #f2ece1; --muted: #a89c88; --line: #342c20;
+      --pitch: #92764e; --pitch-ink: #ffffff; --gold: #c8a978; --win: #5cc183; --draw: #9a917f;
+      --loss: #f07070; --input: #17130d; --input-focus: #c8a978; --sit: #262017; --chip: #2a2318;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Barlow", "Helvetica Neue", Arial, sans-serif; font-size: 16px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(48px + env(safe-area-inset-bottom, 0px)); }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 6px 2px 14px; }
+  h1 { font-family: "Barlow Condensed", "Arial Narrow", Impact, sans-serif; font-weight: 800; font-size: 34px; line-height: 1; letter-spacing: -0.01em; margin: 0; }
+  h1 small { display: block; font-family: "Barlow", sans-serif; font-weight: 500; font-size: 14px; color: var(--muted); letter-spacing: 0; margin-top: 6px; }
+  .brand { display:block; color: var(--gold); margin-bottom:10px; }
+  .brand .logo { display:block; width: 132px; height: auto; }
+  .side { text-align: right; }
+  .progress { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 20px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .progress b { color: var(--ink); }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; margin-top: 4px; color: var(--muted); white-space: nowrap; }
+  .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--draw); }
+  .live.on { color: var(--win); }
+  .live.on i { background: var(--win); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 4px; font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 20px; }
+  .hint { color: var(--muted); font-size: 13.5px; margin: 0 0 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: inherit; font-weight: 600; font-size: 15px; border-radius: 999px; padding: 8px 14px; border: 1.5px solid var(--line); background: var(--chip); color: var(--muted); cursor: pointer; }
+  .chip.on { background: var(--pitch); border-color: var(--pitch); color: var(--pitch-ink); }
+  .chip.apart.on { background: var(--loss); border-color: var(--loss); }
+  .chip .x { margin-left: 6px; opacity: .7; }
+  .add { display: flex; gap: 8px; margin-top: 12px; }
+  .add input, select { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--input); color: var(--ink); }
+  .add input:focus, select:focus { outline: none; border-color: var(--input-focus); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  button { font: inherit; font-weight: 600; font-size: 15px; border-radius: 8px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  button.primary { background: var(--pitch); color: var(--pitch-ink); border-color: var(--pitch); }
+  button.primary:disabled { opacity: .45; cursor: default; }
+  button.danger { color: var(--loss); }
+  button.wide { width: 100%; padding: 13px; font-size: 17px; }
+  button:focus-visible, .chip:focus-visible, .score input:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
+  .summary { font-size: 14px; color: var(--muted); margin: 8px 2px 12px; }
+  .summary b { color: var(--ink); }
+  .err { color: var(--loss); font-size: 14px; margin-top: 8px; }
+
+  .champ { display:none; align-items:center; gap:14px; background: var(--pitch); color: var(--pitch-ink); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+  .champ.show { display:flex; }
+  .champ-k { font-size:13px; opacity:.85; }
+  .champ-n { font-family:"Barlow Condensed", sans-serif; font-weight:800; font-size:32px; line-height:1; margin:2px 0 4px; }
+  .champ-s { font-size:13.5px; opacity:.9; }
+  .board { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .board-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; min-width: 340px; }
+  thead th { background: var(--pitch); color: var(--pitch-ink); font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 15px; padding: 9px 6px; text-align: center; white-space: nowrap; }
+  thead th.name { text-align: left; padding-left: 12px; }
+  thead th.pts { padding-right: 12px; }
+  tbody td { padding: 10px 6px; text-align: center; border-top: 1px solid var(--line); font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 19px; font-variant-numeric: tabular-nums; }
+  tbody td.pos { width: 28px; color: var(--muted); font-size: 16px; padding-left: 10px; }
+  tbody td.name { text-align: left; font-family: "Barlow", sans-serif; font-weight: 600; font-size: 16px; white-space: nowrap; }
+  tbody td.pts { font-weight: 800; font-size: 21px; padding-right: 12px; }
+  tbody td.gd { color: var(--muted); }
+  tbody td.gd.plus { color: var(--win); }
+  tbody td.gd.minus { color: var(--loss); }
+  tbody tr.leader td { background: color-mix(in srgb, var(--gold) 14%, var(--card)); }
+  tbody tr.leader td.pos { color: var(--gold); font-weight: 800; }
+  tbody tr.leader td.name::after { content: " 🏆"; font-size: 13px; }
+  .legend { color: var(--muted); font-size: 12.5px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+
+  h2 { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 22px; margin: 26px 2px 10px; }
+  .match { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 10px; margin-bottom: 10px; }
+  .match.done { border-color: color-mix(in srgb, var(--pitch) 45%, var(--line)); }
+  .match-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .match-no { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 17px; white-space: nowrap; }
+  .sits { font-size: 13px; color: var(--muted); text-align: right; }
+  .sits span { background: var(--sit); padding: 2px 7px; border-radius: 999px; }
+  .line { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+  .team { font-weight: 600; font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+  .team.away { text-align: right; }
+  .team span { display: block; }
+  .team span + span::before { content: "+ "; color: var(--muted); font-weight: 500; }
+  .score { display: flex; align-items: center; gap: 6px; }
+  .score input { width: 48px; height: 48px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--input); color: var(--ink); font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 26px; text-align: center; outline: none; -moz-appearance: textfield; appearance: textfield; padding: 0; }
+  .score input::-webkit-outer-spin-button, .score input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .score input:focus { border-color: var(--input-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-focus) 25%, transparent); }
+  .score input::placeholder { color: var(--line); }
+  .dash { color: var(--muted); font-weight: 600; }
+  .result { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+  .result b { color: var(--ink); }
+  .final { display: none; margin-top: 18px; padding: 14px; border-radius: 10px; background: var(--pitch); color: var(--pitch-ink); }
+  .final.show { display: block; }
+  .final h3 { margin: 0 0 4px; font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 24px; }
+  .final p { margin: 0; font-size: 14.5px; opacity: .92; }
+  .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+  .muted { font-size: 13px; color: var(--muted); }
+  .history { list-style: none; margin: 0; padding: 0; }
+  .history li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .history li:first-child { border-top: 0; }
+  .history li span { color: var(--muted); }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .live.on i { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="brand"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="18 15 176 78" class="logo" role="img" aria-label="Rama Group"> <defs> <g> <g id="rl-glyph-0-0"> <path d="M 3.796875 0 C 3.734375 -0.296875 3.71875 -0.671875 3.71875 -1.046875 L 3.71875 -2.671875 C 3.71875 -3.546875 3.40625 -4.46875 2.0625 -4.46875 C 1.515625 -4.46875 0.984375 -4.3125 0.625 -4.078125 L 0.8125 -3.546875 C 1.125 -3.75 1.546875 -3.875 1.953125 -3.875 C 2.84375 -3.875 2.9375 -3.234375 2.9375 -2.859375 L 2.9375 -2.78125 C 1.25 -2.78125 0.3125 -2.203125 0.3125 -1.15625 C 0.3125 -0.515625 0.765625 0.09375 1.65625 0.09375 C 2.265625 0.09375 2.734375 -0.203125 2.984375 -0.546875 L 3.015625 -0.546875 L 3.078125 0 Z M 2.953125 -1.46875 C 2.953125 -1.390625 2.9375 -1.296875 2.90625 -1.21875 C 2.78125 -0.84375 2.421875 -0.484375 1.859375 -0.484375 C 1.453125 -0.484375 1.109375 -0.734375 1.109375 -1.25 C 1.109375 -2.09375 2.09375 -2.25 2.953125 -2.234375 Z M 2.953125 -1.46875 "/> </g> </g> </defs> <path fill-rule="evenodd" fill="currentColor" fill-opacity="1" d="M 63.984375 50.695312 L 47.480469 50.695312 L 51.035156 47.019531 L 60.433594 47.019531 Z M 175.046875 50.695312 L 158.542969 50.695312 L 162.09375 47.019531 L 171.496094 47.019531 Z M 25.597656 56.78125 L 43.875 75.058594 L 41.277344 77.660156 L 20.398438 56.78125 L 39.113281 38.0625 L 20.835938 19.785156 L 23.4375 17.183594 L 44.316406 38.0625 Z M 149.324219 58.078125 L 148.214844 59.363281 L 147.101562 58.078125 L 129.714844 40.691406 L 112.304688 58.105469 L 111.21875 59.222656 L 110.132812 58.105469 L 92.71875 40.691406 L 75.328125 58.085938 L 74.222656 59.328125 L 73.117188 58.085938 C 67.300781 52.273438 61.546875 46.515625 55.722656 40.691406 C 49.5 46.917969 43.925781 52.492188 37.445312 58.96875 L 34.84375 56.371094 L 55.722656 35.492188 L 74.222656 53.992188 L 92.71875 35.492188 L 111.21875 53.992188 L 129.714844 35.492188 L 148.214844 53.992188 L 166.710938 35.492188 L 187.589844 56.371094 L 184.992188 58.96875 C 178.898438 52.878906 172.804688 46.785156 166.710938 40.691406 C 160.917969 46.488281 155.121094 52.285156 149.324219 58.078125 "/> <path fill="none" stroke-width="0.216" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(55.210876%, 43.334961%, 24.940491%)" stroke-opacity="1" stroke-miterlimit="22.926" d="M 0.000883895 0.0014241 L -138.197162 0.0014241 " transform="matrix(0.998482, 0, 0, -0.998482, 187.78818, 77.649859)"/> <path fill-rule="evenodd" fill="currentColor" fill-opacity="1" d="M 49.800781 67.878906 L 51.449219 67.878906 C 52.273438 67.878906 52.941406 68.082031 53.457031 68.492188 C 53.976562 68.898438 54.234375 69.421875 54.234375 70.0625 C 54.234375 70.574219 54.066406 71.023438 53.730469 71.414062 C 53.398438 71.804688 52.875 72.082031 52.164062 72.238281 L 54.382812 75.503906 L 53.191406 75.503906 L 51.074219 72.367188 L 50.839844 72.367188 L 50.839844 75.503906 L 49.800781 75.503906 Z M 50.839844 68.800781 L 50.839844 71.457031 C 52.375 71.488281 53.144531 71.042969 53.144531 70.121094 C 53.144531 69.796875 53.054688 69.535156 52.875 69.328125 C 52.695312 69.121094 52.457031 68.984375 52.15625 68.910156 C 51.859375 68.835938 51.417969 68.800781 50.839844 68.800781 M 66.171875 67.582031 L 69.777344 75.503906 L 68.6875 75.503906 L 67.792969 73.550781 L 64.554688 73.550781 L 63.6875 75.503906 L 62.605469 75.503906 Z M 66.171875 69.972656 L 64.945312 72.683594 L 67.398438 72.683594 Z M 84.589844 67.558594 L 86.671875 75.503906 L 85.652344 75.503906 L 84.390625 70.648438 L 82.21875 75.796875 L 80.039062 70.613281 L 78.765625 75.503906 L 77.746094 75.503906 L 79.832031 67.558594 L 82.21875 73.246094 Z M 98.15625 67.582031 L 101.761719 75.503906 L 100.671875 75.503906 L 99.777344 73.550781 L 96.539062 73.550781 L 95.671875 75.503906 L 94.589844 75.503906 Z M 98.15625 69.972656 L 96.929688 72.683594 L 99.382812 72.683594 Z M 127.792969 69.089844 L 127.023438 69.851562 C 126.242188 69.089844 125.34375 68.710938 124.324219 68.710938 C 123.429688 68.710938 122.683594 68.996094 122.089844 69.570312 C 121.496094 70.144531 121.199219 70.863281 121.199219 71.726562 C 121.199219 72.480469 121.488281 73.160156 122.0625 73.765625 C 122.640625 74.367188 123.433594 74.671875 124.449219 74.671875 C 125.96875 74.671875 126.921875 74.011719 127.316406 72.683594 L 125.257812 72.683594 L 125.257812 71.640625 L 128.507812 71.640625 C 128.507812 72.164062 128.472656 72.582031 128.402344 72.894531 C 128.332031 73.203125 128.1875 73.546875 127.96875 73.921875 C 127.75 74.296875 127.457031 74.632812 127.089844 74.929688 C 126.726562 75.230469 126.335938 75.441406 125.917969 75.570312 C 125.503906 75.695312 125.003906 75.761719 124.425781 75.761719 C 123.109375 75.761719 122.058594 75.347656 121.273438 74.519531 C 120.488281 73.691406 120.097656 72.742188 120.097656 71.679688 C 120.097656 70.554688 120.496094 69.601562 121.300781 68.8125 C 122.101562 68.023438 123.074219 67.632812 124.214844 67.632812 C 124.894531 67.632812 125.511719 67.734375 126.074219 67.9375 C 126.632812 68.144531 127.207031 68.53125 127.792969 69.089844 M 137.605469 67.878906 L 139.253906 67.878906 C 140.078125 67.878906 140.746094 68.082031 141.261719 68.492188 C 141.78125 68.898438 142.039062 69.421875 142.039062 70.0625 C 142.039062 70.574219 141.871094 71.023438 141.539062 71.414062 C 141.203125 71.804688 140.679688 72.082031 139.96875 72.238281 L 142.1875 75.503906 L 141 75.503906 L 138.878906 72.367188 L 138.644531 72.367188 L 138.644531 75.503906 L 137.605469 75.503906 Z M 138.644531 68.800781 L 138.644531 71.457031 C 140.179688 71.488281 140.949219 71.042969 140.949219 70.121094 C 140.949219 69.796875 140.863281 69.535156 140.679688 69.328125 C 140.5 69.121094 140.261719 68.984375 139.960938 68.910156 C 139.664062 68.835938 139.222656 68.800781 138.644531 68.800781 M 150.816406 71.640625 C 150.816406 70.539062 151.234375 69.597656 152.0625 68.8125 C 152.890625 68.023438 153.890625 67.632812 155.058594 67.632812 C 156.191406 67.632812 157.171875 68.027344 157.996094 68.820312 C 158.816406 69.613281 159.230469 70.550781 159.230469 71.640625 C 159.230469 72.796875 158.824219 73.769531 158.007812 74.566406 C 157.199219 75.363281 156.203125 75.761719 155.019531 75.761719 C 153.855469 75.761719 152.863281 75.359375 152.042969 74.558594 C 151.226562 73.753906 150.816406 72.78125 150.816406 71.640625 M 158.121094 71.691406 C 158.121094 70.847656 157.816406 70.140625 157.210938 69.5625 C 156.601562 68.984375 155.859375 68.699219 154.972656 68.699219 C 154.128906 68.699219 153.40625 68.988281 152.808594 69.578125 C 152.207031 70.164062 151.90625 70.867188 151.90625 71.691406 C 151.90625 72.523438 152.214844 73.230469 152.832031 73.804688 C 153.449219 74.382812 154.203125 74.671875 155.097656 74.671875 C 155.917969 74.671875 156.628906 74.375 157.226562 73.789062 C 157.824219 73.199219 158.121094 72.5 158.121094 71.691406 M 168.113281 67.886719 L 169.15625 67.886719 L 169.15625 72.574219 C 169.15625 73.269531 169.324219 73.804688 169.65625 74.183594 C 169.992188 74.566406 170.460938 74.753906 171.070312 74.753906 C 171.675781 74.753906 172.148438 74.578125 172.488281 74.230469 C 172.824219 73.882812 172.992188 73.390625 172.992188 72.753906 L 172.992188 67.886719 L 174.035156 67.886719 L 174.035156 72.683594 C 174.035156 73.617188 173.769531 74.363281 173.234375 74.921875 C 172.703125 75.480469 171.996094 75.761719 171.109375 75.761719 C 170.203125 75.761719 169.476562 75.476562 168.933594 74.910156 C 168.386719 74.34375 168.113281 73.507812 168.113281 72.402344 Z M 183.363281 67.878906 L 184.898438 67.878906 C 185.761719 67.878906 186.460938 68.082031 186.992188 68.488281 C 187.523438 68.894531 187.789062 69.421875 187.789062 70.074219 C 187.789062 70.726562 187.507812 71.277344 186.945312 71.71875 C 186.386719 72.164062 185.535156 72.378906 184.394531 72.367188 L 184.394531 75.503906 L 183.363281 75.503906 Z M 184.394531 68.789062 L 184.394531 71.457031 C 185.175781 71.449219 185.753906 71.335938 186.132812 71.125 C 186.507812 70.910156 186.699219 70.570312 186.699219 70.097656 C 186.699219 69.742188 186.554688 69.433594 186.269531 69.175781 C 185.984375 68.917969 185.359375 68.789062 184.394531 68.789062 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 49.796875 88.199219 C 50.035156 88.21875 50.207031 88.234375 50.324219 88.246094 C 50.757812 88.28125 50.917969 88.289062 51.441406 88.289062 C 52.761719 88.289062 53.617188 87.632812 53.617188 86.601562 C 53.617188 86.132812 53.421875 85.6875 53.078125 85.390625 C 52.84375 85.183594 52.660156 85.101562 52.28125 85.019531 C 52.914062 84.660156 53.175781 84.28125 53.175781 83.71875 C 53.175781 82.808594 52.445312 82.238281 51.273438 82.238281 C 50.835938 82.238281 50.59375 82.257812 49.796875 82.328125 Z M 50.585938 82.878906 C 50.835938 82.851562 50.945312 82.84375 51.089844 82.84375 L 51.199219 82.84375 C 51.894531 82.84375 52.390625 83.277344 52.363281 83.855469 C 52.335938 84.371094 51.914062 84.875 51.496094 84.875 L 50.585938 84.875 Z M 50.585938 85.464844 L 51.316406 85.464844 C 51.660156 85.464844 51.921875 85.5 52.101562 85.582031 C 52.519531 85.769531 52.769531 86.167969 52.769531 86.636719 C 52.769531 87.289062 52.28125 87.667969 51.453125 87.667969 C 51.152344 87.667969 50.980469 87.65625 50.585938 87.613281 Z M 50.585938 85.464844 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 59.609375 84.253906 L 58.867188 84.253906 L 58.867188 87.214844 C 58.542969 87.566406 58.234375 87.730469 57.863281 87.730469 C 57.496094 87.730469 57.207031 87.578125 57.097656 87.324219 C 57.035156 87.179688 57.007812 87 57.007812 86.691406 L 57.007812 84.253906 L 56.265625 84.253906 L 56.265625 86.726562 C 56.265625 87.222656 56.320312 87.503906 56.445312 87.738281 C 56.644531 88.101562 57.105469 88.34375 57.578125 88.34375 C 58.144531 88.34375 58.503906 88.191406 58.949219 87.75 C 59.011719 88.128906 59.273438 88.335938 59.707031 88.335938 C 59.90625 88.335938 59.914062 88.335938 60.058594 88.308594 L 60.167969 87.800781 L 60.058594 87.800781 C 59.753906 87.800781 59.644531 87.695312 59.617188 87.359375 C 59.609375 87.277344 59.609375 87.304688 59.609375 86.953125 Z M 59.609375 84.253906 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 63.023438 82.265625 C 62.769531 82.265625 62.570312 82.472656 62.570312 82.753906 C 62.570312 83.035156 62.769531 83.242188 63.023438 83.242188 C 63.285156 83.242188 63.472656 83.035156 63.472656 82.753906 C 63.472656 82.472656 63.285156 82.265625 63.023438 82.265625 M 63.394531 84.253906 L 62.652344 84.253906 L 62.652344 88.226562 L 63.394531 88.226562 Z M 63.394531 84.253906 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 66.285156 88.226562 L 67.023438 88.226562 L 67.023438 81.914062 L 66.285156 81.914062 Z M 66.285156 88.226562 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 72.652344 81.914062 L 72.652344 84.480469 C 72.238281 84.234375 72.058594 84.1875 71.605469 84.1875 C 70.574219 84.1875 69.707031 85.15625 69.707031 86.304688 C 69.707031 87.476562 70.441406 88.34375 71.433594 88.34375 C 72.011719 88.34375 72.328125 88.226562 72.753906 87.839844 C 72.859375 88.171875 73.105469 88.335938 73.492188 88.335938 C 73.691406 88.335938 73.699219 88.335938 73.84375 88.308594 L 73.953125 87.804688 L 73.84375 87.804688 C 73.539062 87.804688 73.429688 87.695312 73.402344 87.359375 C 73.394531 87.277344 73.394531 87.304688 73.394531 86.953125 L 73.394531 81.914062 Z M 72.652344 87.351562 C 72.292969 87.65625 72.101562 87.730469 71.695312 87.730469 C 71.019531 87.730469 70.511719 87.117188 70.511719 86.304688 C 70.511719 85.417969 70.972656 84.804688 71.667969 84.769531 C 72.046875 84.75 72.328125 84.867188 72.652344 85.183594 Z M 72.652344 87.351562 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 76.800781 82.265625 C 76.546875 82.265625 76.347656 82.472656 76.347656 82.753906 C 76.347656 83.035156 76.546875 83.242188 76.800781 83.242188 C 77.0625 83.242188 77.25 83.035156 77.25 82.753906 C 77.25 82.472656 77.0625 82.265625 76.800781 82.265625 M 77.167969 84.253906 L 76.429688 84.253906 L 76.429688 88.226562 L 77.167969 88.226562 Z M 77.167969 84.253906 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 79.816406 84.398438 C 80.042969 84.613281 80.085938 84.847656 80.085938 85.851562 L 80.085938 88.226562 L 80.828125 88.226562 L 80.828125 85.382812 C 80.917969 85.273438 80.972656 85.210938 81.027344 85.15625 C 81.289062 84.902344 81.613281 84.75 81.914062 84.75 C 82.210938 84.75 82.417969 84.832031 82.570312 85.019531 C 82.707031 85.191406 82.761719 85.417969 82.761719 85.851562 L 82.761719 88.226562 L 83.503906 88.226562 L 83.503906 85.554688 C 83.503906 84.6875 82.949219 84.136719 82.09375 84.136719 C 81.578125 84.136719 81.117188 84.390625 80.785156 84.847656 C 80.757812 84.488281 80.65625 84.28125 80.441406 84.136719 Z M 79.816406 84.398438 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 89.925781 84.253906 L 88.515625 84.253906 C 88.171875 84.125 87.984375 84.089844 87.675781 84.109375 C 86.789062 84.152344 86.148438 84.769531 86.148438 85.582031 C 86.148438 86.25 86.367188 86.636719 86.917969 86.925781 C 86.527344 87.152344 86.421875 87.296875 86.421875 87.578125 C 86.421875 87.894531 86.527344 88.027344 86.917969 88.171875 C 86.25 88.445312 85.921875 88.8125 85.921875 89.3125 C 85.921875 90.105469 86.65625 90.628906 87.773438 90.628906 C 88.859375 90.628906 89.671875 90.015625 89.71875 89.15625 C 89.742188 88.578125 89.363281 88.109375 88.734375 87.964844 L 87.539062 87.695312 C 87.097656 87.59375 86.980469 87.515625 87.015625 87.34375 C 87.035156 87.234375 87.097656 87.171875 87.25 87.082031 C 87.511719 87.132812 87.640625 87.144531 87.828125 87.144531 C 88.226562 87.144531 88.625 87.007812 88.902344 86.773438 C 89.238281 86.484375 89.390625 86.125 89.390625 85.609375 C 89.390625 85.273438 89.273438 85.003906 89.003906 84.714844 L 89.925781 84.75 Z M 87.757812 84.585938 C 88.308594 84.585938 88.6875 85.074219 88.660156 85.734375 C 88.632812 86.304688 88.316406 86.628906 87.785156 86.628906 C 87.222656 86.628906 86.835938 86.113281 86.890625 85.453125 C 86.933594 84.902344 87.257812 84.585938 87.757812 84.585938 M 88.035156 88.480469 C 88.316406 88.542969 88.488281 88.589844 88.597656 88.632812 C 88.886719 88.769531 89.019531 88.957031 89.019531 89.238281 C 89.019531 89.734375 88.550781 90.070312 87.847656 90.070312 C 87.132812 90.070312 86.617188 89.691406 86.617188 89.167969 C 86.617188 88.839844 86.863281 88.550781 87.332031 88.328125 Z M 88.035156 88.480469 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 106.632812 88.199219 C 106.867188 88.21875 107.039062 88.234375 107.15625 88.246094 C 107.589844 88.28125 107.753906 88.289062 108.277344 88.289062 C 109.597656 88.289062 110.453125 87.632812 110.453125 86.601562 C 110.453125 86.132812 110.257812 85.6875 109.914062 85.390625 C 109.675781 85.183594 109.496094 85.101562 109.117188 85.019531 C 109.75 84.660156 110.011719 84.28125 110.011719 83.71875 C 110.011719 82.808594 109.28125 82.238281 108.105469 82.238281 C 107.671875 82.238281 107.429688 82.257812 106.632812 82.328125 Z M 107.417969 82.878906 C 107.671875 82.851562 107.78125 82.84375 107.925781 82.84375 L 108.035156 82.84375 C 108.730469 82.84375 109.226562 83.277344 109.199219 83.855469 C 109.171875 84.371094 108.746094 84.875 108.332031 84.875 L 107.417969 84.875 Z M 107.417969 85.464844 L 108.152344 85.464844 C 108.496094 85.464844 108.757812 85.5 108.9375 85.582031 C 109.351562 85.769531 109.605469 86.167969 109.605469 86.636719 C 109.605469 87.289062 109.117188 87.667969 108.285156 87.667969 C 107.988281 87.667969 107.816406 87.65625 107.417969 87.613281 Z M 107.417969 85.464844 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 116.152344 86.148438 L 116.460938 85.78125 C 116.460938 85.4375 116.414062 85.246094 116.289062 84.984375 C 116 84.40625 115.523438 84.136719 114.800781 84.136719 C 114.375 84.136719 113.898438 84.335938 113.554688 84.648438 C 113.164062 85.011719 112.921875 85.597656 112.921875 86.1875 C 112.921875 87.503906 113.667969 88.34375 114.835938 88.34375 C 115.511719 88.34375 116.007812 88.128906 116.460938 87.640625 L 116.082031 87.242188 C 115.785156 87.539062 115.414062 87.6875 114.945312 87.6875 C 114.476562 87.6875 114.03125 87.394531 113.832031 86.960938 C 113.714844 86.710938 113.679688 86.503906 113.679688 86.148438 Z M 113.6875 85.644531 C 113.816406 85.074219 114.222656 84.722656 114.761719 84.722656 C 115.324219 84.722656 115.722656 85.082031 115.773438 85.644531 Z M 113.6875 85.644531 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 121.25 84.253906 L 120.164062 84.253906 L 120.226562 83.125 L 119.769531 83.125 L 119.730469 83.367188 C 119.613281 84.171875 119.503906 84.289062 118.828125 84.335938 L 118.585938 84.351562 L 118.585938 84.8125 L 119.425781 84.8125 L 119.425781 87.125 C 119.425781 87.433594 119.460938 87.65625 119.542969 87.8125 C 119.695312 88.09375 120.019531 88.273438 120.398438 88.289062 C 120.824219 88.308594 121.1875 88.226562 121.546875 88.027344 L 121.4375 87.53125 C 121.140625 87.648438 120.953125 87.695312 120.769531 87.695312 C 120.28125 87.695312 120.164062 87.542969 120.164062 86.90625 L 120.164062 84.8125 L 121.25 84.8125 Z M 121.25 84.253906 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 126.089844 84.253906 L 125.007812 84.253906 L 125.070312 83.125 L 124.609375 83.125 L 124.574219 83.367188 C 124.457031 84.171875 124.347656 84.289062 123.671875 84.335938 L 123.425781 84.351562 L 123.425781 84.8125 L 124.265625 84.8125 L 124.265625 87.125 C 124.265625 87.433594 124.300781 87.65625 124.382812 87.8125 C 124.539062 88.09375 124.863281 88.273438 125.242188 88.289062 C 125.667969 88.308594 126.027344 88.226562 126.390625 88.027344 L 126.28125 87.53125 C 125.984375 87.648438 125.792969 87.695312 125.613281 87.695312 C 125.125 87.695312 125.007812 87.542969 125.007812 86.90625 L 125.007812 84.8125 L 126.089844 84.8125 Z M 126.089844 84.253906 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 131.503906 86.132812 L 131.8125 85.761719 C 131.8125 85.417969 131.765625 85.226562 131.640625 84.964844 C 131.351562 84.386719 130.871094 84.117188 130.148438 84.117188 C 129.726562 84.117188 129.246094 84.316406 128.902344 84.632812 C 128.515625 84.992188 128.273438 85.578125 128.273438 86.167969 C 128.273438 87.484375 129.019531 88.324219 130.1875 88.324219 C 130.863281 88.324219 131.359375 88.109375 131.8125 87.621094 L 131.433594 87.222656 C 131.132812 87.523438 130.765625 87.667969 130.292969 87.667969 C 129.824219 87.667969 129.382812 87.378906 129.183594 86.945312 C 129.066406 86.691406 129.03125 86.484375 129.03125 86.132812 Z M 129.039062 85.625 C 129.164062 85.054688 129.570312 84.703125 130.113281 84.703125 C 130.675781 84.703125 131.070312 85.066406 131.125 85.625 Z M 129.039062 85.625 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 134.222656 84.398438 C 134.445312 84.613281 134.492188 84.847656 134.492188 85.851562 L 134.492188 88.226562 L 135.234375 88.226562 L 135.234375 85.636719 C 135.332031 85.480469 135.351562 85.464844 135.386719 85.410156 C 135.621094 85.066406 135.917969 84.847656 136.191406 84.8125 C 136.328125 84.796875 136.453125 84.820312 136.75 84.914062 L 136.929688 84.289062 C 136.625 84.171875 136.496094 84.136719 136.296875 84.136719 C 135.910156 84.136719 135.558594 84.433594 135.195312 85.082031 C 135.171875 84.523438 135.089844 84.296875 134.84375 84.136719 Z M 134.222656 84.398438 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 144.585938 82.953125 L 146.628906 82.953125 L 146.628906 82.300781 L 141.757812 82.300781 L 141.757812 82.953125 L 143.800781 82.953125 L 143.800781 88.226562 L 144.585938 88.226562 Z M 144.585938 82.953125 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 149.609375 84.136719 C 148.453125 84.136719 147.578125 85.046875 147.578125 86.25 C 147.578125 87.511719 148.417969 88.34375 149.691406 88.34375 C 150.855469 88.34375 151.714844 87.371094 151.652344 86.121094 C 151.589844 84.941406 150.757812 84.136719 149.609375 84.136719 M 149.539062 84.75 C 150.332031 84.75 150.882812 85.417969 150.882812 86.394531 C 150.882812 87.179688 150.386719 87.757812 149.710938 87.757812 C 148.914062 87.757812 148.355469 87.070312 148.355469 86.097656 C 148.355469 85.328125 148.859375 84.75 149.539062 84.75 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 154.089844 84.398438 C 154.316406 84.613281 154.363281 84.847656 154.363281 85.851562 L 154.363281 88.226562 L 155.101562 88.226562 L 155.101562 85.410156 C 155.363281 84.984375 155.691406 84.769531 156.105469 84.742188 C 156.386719 84.722656 156.609375 84.8125 156.757812 84.992188 C 156.890625 85.15625 156.925781 85.347656 156.925781 85.796875 L 156.925781 88.226562 L 157.667969 88.226562 L 157.667969 85.410156 C 157.992188 84.949219 158.273438 84.757812 158.6875 84.742188 C 159.003906 84.722656 159.230469 84.820312 159.355469 85.019531 C 159.476562 85.183594 159.492188 85.308594 159.492188 85.789062 L 159.492188 88.226562 L 160.234375 88.226562 L 160.234375 85.519531 C 160.234375 84.605469 159.761719 84.136719 158.859375 84.136719 C 158.554688 84.136719 158.199219 84.253906 157.9375 84.453125 C 157.804688 84.550781 157.695312 84.660156 157.503906 84.894531 C 157.304688 84.390625 156.910156 84.136719 156.3125 84.136719 C 155.796875 84.136719 155.335938 84.390625 155.058594 84.832031 C 155.03125 84.488281 154.921875 84.269531 154.714844 84.136719 Z M 154.089844 84.398438 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 164.929688 84.136719 C 163.773438 84.136719 162.898438 85.046875 162.898438 86.25 C 162.898438 87.511719 163.738281 88.34375 165.011719 88.34375 C 166.175781 88.34375 167.035156 87.371094 166.972656 86.121094 C 166.910156 84.941406 166.078125 84.136719 164.929688 84.136719 M 164.859375 84.75 C 165.652344 84.75 166.203125 85.417969 166.203125 86.394531 C 166.203125 87.179688 165.707031 87.757812 165.03125 87.757812 C 164.234375 87.757812 163.675781 87.070312 163.675781 86.097656 C 163.675781 85.328125 164.179688 84.75 164.859375 84.75 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 169.410156 84.398438 C 169.636719 84.613281 169.683594 84.847656 169.683594 85.851562 L 169.683594 88.226562 L 170.421875 88.226562 L 170.421875 85.636719 C 170.523438 85.480469 170.539062 85.464844 170.578125 85.410156 C 170.8125 85.066406 171.109375 84.847656 171.378906 84.8125 C 171.515625 84.796875 171.640625 84.820312 171.941406 84.914062 L 172.121094 84.289062 C 171.8125 84.171875 171.6875 84.136719 171.488281 84.136719 C 171.101562 84.136719 170.75 84.433594 170.386719 85.082031 C 170.359375 84.523438 170.277344 84.296875 170.035156 84.136719 Z M 169.410156 84.398438 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 174.34375 84.398438 C 174.570312 84.613281 174.613281 84.847656 174.613281 85.851562 L 174.613281 88.226562 L 175.355469 88.226562 L 175.355469 85.636719 C 175.457031 85.480469 175.472656 85.464844 175.507812 85.410156 C 175.742188 85.066406 176.042969 84.847656 176.3125 84.8125 C 176.449219 84.796875 176.574219 84.820312 176.871094 84.914062 L 177.054688 84.289062 C 176.746094 84.171875 176.621094 84.136719 176.421875 84.136719 C 176.035156 84.136719 175.679688 84.433594 175.320312 85.082031 C 175.292969 84.523438 175.210938 84.296875 174.96875 84.136719 Z M 174.34375 84.398438 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 180.910156 84.136719 C 179.753906 84.136719 178.878906 85.046875 178.878906 86.25 C 178.878906 87.511719 179.71875 88.34375 180.992188 88.34375 C 182.15625 88.34375 183.015625 87.371094 182.953125 86.121094 C 182.890625 84.941406 182.058594 84.136719 180.910156 84.136719 M 180.839844 84.75 C 181.632812 84.75 182.183594 85.417969 182.183594 86.394531 C 182.183594 87.179688 181.6875 87.757812 181.011719 87.757812 C 180.214844 87.757812 179.65625 87.070312 179.65625 86.097656 C 179.65625 85.328125 180.160156 84.75 180.839844 84.75 "/> <path fill-rule="nonzero" fill="currentColor" fill-opacity="1" d="M 189.238281 87.332031 L 188.019531 84.136719 L 187.332031 84.316406 L 187.765625 85.425781 L 187.035156 87.425781 L 185.761719 84.136719 L 185.058594 84.316406 L 186.621094 88.226562 L 187.289062 88.226562 L 188.046875 86.160156 L 188.859375 88.226562 L 189.539062 88.226562 L 191.074219 84.316406 L 190.433594 84.136719 Z M 189.238281 87.332031 "/> <g fill="currentColor" fill-opacity="1"> <use xlink:href="#rl-glyph-0-0" x="95.899067" y="88.231973"/> </g> </svg> </span><span id="title">Rama Cup</span><small id="subtitle">2v2 league · individual standings</small></h1>
+    <div class="side">
+      <div class="progress" id="progress" hidden><b id="played">0</b>/<span id="total">0</span> played</div>
+      <div class="live" id="live"><i></i><span id="liveText">Connecting</span></div>
+    </div>
+  </header>
+
+  <!-- ============ SETUP ============ -->
+  <section id="setup" hidden>
+    <div class="card">
+      <h3>Who's playing tonight?</h3>
+      <p class="hint">Tap to select. Add anyone new below.</p>
+      <div class="chips" id="playerChips"></div>
+      <form class="add" id="addForm">
+        <input id="addName" placeholder="Add a player" autocomplete="off" maxlength="20" aria-label="New player name">
+        <button type="submit">Add</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Keep apart</h3>
+      <p class="hint">Players tapped here never end up on the same team.</p>
+      <div class="chips" id="apartChips"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div><h3>Matches per player</h3><p class="hint" id="perHint" style="margin:0"></p></div>
+        <select id="perPlayer" style="flex:0 0 96px" aria-label="Matches per player"></select>
+      </div>
+    </div>
+
+    <button class="primary wide" id="genBtn" type="button">Generate matchups</button>
+    <div class="err" id="genErr"></div>
+
+    <div id="preview" hidden>
+      <h2>Preview</h2>
+      <div class="summary" id="previewSummary"></div>
+      <div id="previewList"></div>
+      <div class="actions">
+        <button type="button" id="reshuffle">Reshuffle</button>
+        <button type="button" class="primary" id="startBtn">Start the night</button>
+      </div>
+    </div>
+
+    <div id="historyWrap" hidden>
+      <h2>Past nights</h2>
+      <div class="card"><ul class="history" id="historyList"></ul></div>
+    </div>
+  </section>
+
+  <!-- ============ NIGHT ============ -->
+  <section id="night" hidden>
+    <div class="champ" id="champ"><div><div class="champ-k">Champion</div><div class="champ-n" id="champName"></div><div class="champ-s" id="champStat"></div></div></div>
+    <div class="board">
+      <div class="board-scroll">
+        <table aria-label="League table">
+          <thead><tr><th>#</th><th class="name">Player</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th class="pts">Pts</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <h2>Fixtures</h2>
+    <div id="fixtures"></div>
+
+    <div class="final" id="final"><h3 id="finalTitle"></h3><p id="finalText"></p></div>
+
+    <div class="actions">
+      <span class="muted" id="saveState"></span>
+      <button type="button" class="danger" id="endBtn">End night &amp; start new</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var REGULARS = ["Prakhar", "Siddharth", "Dhruv", "Aarjav", "Nilay", "Kaustubh", "Abhay"];
+  var DEFAULT_APART = ["Nilay", "Kaustubh", "Dhruv"];
+  // House rule (the group knows): Prakhar gets one of these as his partner in ~80% of his matches.
+  var HOST = "Prakhar";
+  var HOST_PARTNERS = ["Abhay", "Dhruv", "Nilay"];
+  var HOST_SHARE = 0.8;
+  var DB = (window.FIFA_DB_URL || "").replace(/\/+$/, "");
+  var ROOT = "fifa";
+  var LOCAL_KEY = "rama-cup-v1";
+
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function num(v) { if (v === "" || v === null || v === undefined) return null; var n = parseInt(v, 10); return isNaN(n) || n < 0 ? null : n; }
+
+  // ------------------------------------------------------------------
+  // Storage: Firebase Realtime Database over REST (live), or this device
+  // ------------------------------------------------------------------
+  var data = { current: null, history: {}, roster: null };
+  var store = {
+    live: !!DB,
+    url: function (path) { return DB + "/" + ROOT + (path ? "/" + path : "") + ".json"; },
+    put: function (path, value) {
+      setByPath(path, value); afterChange();
+      if (!this.live) { saveLocal(); return Promise.resolve(); }
+      setSave("Saving…");
+      return fetch(this.url(path), { method: "PUT", body: JSON.stringify(value) }).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        setSave("Saved for everyone");
+      }).catch(function () { setSave("Couldn't save — check your connection"); });
+    }
+  };
+  function setByPath(path, value) {
+    var parts = path.split("/"), o = data;
+    for (var i = 0; i < parts.length - 1; i++) { if (o[parts[i]] == null || typeof o[parts[i]] !== "object") o[parts[i]] = {}; o = o[parts[i]]; }
+    if (value === null) delete o[parts[parts.length - 1]]; else o[parts[parts.length - 1]] = value;
+  }
+  function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) {} }
+  function loadLocal() { try { var raw = localStorage.getItem(LOCAL_KEY); if (raw) data = normalise(JSON.parse(raw)); } catch (e) {} }
+  function normalise(d) {
+    d = d || {};
+    return { current: d.current || null, history: d.history || {}, roster: d.roster || null };
+  }
+  function setSave(t) { $("saveState").textContent = t; }
+  function setLive(on, text) { $("live").className = "live" + (on ? " on" : ""); $("liveText").textContent = text; }
+
+  function connect() {
+    if (!store.live) {
+      loadLocal(); setLive(false, "This device only"); afterChange(); return;
+    }
+    var es;
+    try { es = new EventSource(store.url("")); } catch (e) { fallback(); return; }
+    es.addEventListener("put", onEvent);
+    es.addEventListener("patch", onEvent);
+    es.onopen = function () { setLive(true, "Live"); };
+    es.onerror = function () { setLive(false, "Reconnecting"); };
+    function onEvent(ev) {
+      setLive(true, "Live");
+      var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (!msg) return;
+      var p = (msg.path || "/").replace(/^\/+/, "");
+      if (ev.type === "put") {
+        if (p === "") data = normalise(msg.data); else setByPath(p, msg.data);
+      } else {
+        Object.keys(msg.data || {}).forEach(function (k) { setByPath((p ? p + "/" : "") + k, msg.data[k]); });
+      }
+      afterChange();
+    }
+    function fallback() { store.live = false; loadLocal(); setLive(false, "This device only"); afterChange(); }
+  }
+
+  // ------------------------------------------------------------------
+  // Fixture generator
+  // ------------------------------------------------------------------
+  function generate(players, perPlayer, apart) {
+    var n = players.length, M = n * perPlayer / 4, best = null;
+    var apartSet = {}; apart.forEach(function (p) { apartSet[p] = true; });
+    // How many of the host's matches should be with a preferred partner tonight.
+    // Rounds up or down at random so it averages out to HOST_SHARE over the weeks.
+    var favSet = {}, hostIn = players.indexOf(HOST) !== -1, favTarget = 0;
+    HOST_PARTNERS.forEach(function (p) { if (players.indexOf(p) !== -1) favSet[p] = true; });
+    if (hostIn && Object.keys(favSet).length) {
+      var exact = perPlayer * HOST_SHARE, base = Math.floor(exact);
+      favTarget = base + (Math.random() < exact - base ? 1 : 0);
+    }
+    var started = Date.now();
+    for (var t = 0; t < 4000 && (t < 30 || Date.now() - started < 1200); t++) {
+      var s = attempt();
+      if (s && (!best || s.cost < best.cost)) { best = s; if (best.cost === 0) break; }
+    }
+    return best;
+
+    function attempt() {
+      var rem = {}, playRun = {}, sitRun = {}, partner = {}, opp = {};
+      players.forEach(function (p) { rem[p] = perPlayer; playRun[p] = 0; sitRun[p] = 0; partner[p] = {}; opp[p] = {}; });
+      var matches = [], cost = 0, favCount = 0, favW = 10 + Math.random() * 50;
+      for (var m = 0; m < M; m++) {
+        var left = M - m;
+        var cand = players.filter(function (p) { return rem[p] > 0; });
+        if (cand.length < 4) return null;
+        // cost of leaving each player out of / putting each player into this match
+        var inCost = {}, outCost = {};
+        cand.forEach(function (p) {
+          var u = rem[p] / left;
+          inCost[p] = (playRun[p] >= 2 ? 200 : 0) - u * 8 + Math.random() * 3;
+          outCost[p] = (rem[p] >= left ? 1e6 : 0) + (sitRun[p] >= 2 ? 200 : 0);
+        });
+        var totalOut = 0; cand.forEach(function (p) { totalOut += outCost[p]; });
+        var bestSplit = null, bestCost = Infinity, nc = cand.length;
+        for (var i1 = 0; i1 < nc; i1++) for (var i2 = i1 + 1; i2 < nc; i2++) for (var i3 = i2 + 1; i3 < nc; i3++) for (var i4 = i3 + 1; i4 < nc; i4++) {
+          var a = cand[i1], b = cand[i2], c = cand[i3], d = cand[i4];
+          var base = inCost[a] + inCost[b] + inCost[c] + inCost[d] + totalOut - outCost[a] - outCost[b] - outCost[c] - outCost[d];
+          if (base >= bestCost) continue;
+          var splits = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
+          for (var si = 0; si < 3; si++) {
+            var sp = splits[si], sc = base;
+            for (var ti = 0; ti < 2; ti++) {
+              var x = sp[ti][0], y = sp[ti][1];
+              sc += (partner[x][y] || 0) * 25;
+              if (apartSet[x] && apartSet[y]) sc += 1000;
+              if (favTarget && (x === HOST || y === HOST)) {
+                var mate = x === HOST ? y : x;
+                if (favSet[mate]) sc += favCount < favTarget ? -favW : favW;
+                else sc += favCount < favTarget ? favW : -favW / 3;
+              }
+            }
+            sc += ((opp[sp[0][0]][sp[1][0]] || 0) + (opp[sp[0][0]][sp[1][1]] || 0) + (opp[sp[0][1]][sp[1][0]] || 0) + (opp[sp[0][1]][sp[1][1]] || 0)) * 0.5;
+            sc += Math.random() * 0.5;
+            if (sc < bestCost) { bestCost = sc; bestSplit = sp; }
+          }
+        }
+        if (!bestSplit) return null;
+        var four = bestSplit[0].concat(bestSplit[1]);
+        if (Math.random() < 0.5) bestSplit = [bestSplit[1], bestSplit[0]];
+        bestSplit.forEach(function (team) {
+          var x = team[0], y = team[1];
+          if (partner[x][y]) cost += partner[x][y] * 10;
+          if (apartSet[x] && apartSet[y]) cost += 1000;
+          partner[x][y] = (partner[x][y] || 0) + 1; partner[y][x] = partner[x][y];
+          if (favTarget && ((x === HOST && favSet[y]) || (y === HOST && favSet[x]))) favCount++;
+        });
+        bestSplit[0].forEach(function (x) { bestSplit[1].forEach(function (y) { cost += (opp[x][y] || 0) * 0.5; opp[x][y] = (opp[x][y] || 0) + 1; opp[y][x] = opp[x][y]; }); });
+        var inMatch = {}; four.forEach(function (p) { inMatch[p] = true; });
+        players.forEach(function (p) {
+          if (inMatch[p]) { rem[p]--; playRun[p]++; sitRun[p] = 0; if (playRun[p] >= 3) cost += 200; }
+          else { sitRun[p]++; playRun[p] = 0; if (sitRun[p] >= 3) cost += 200; }
+        });
+        matches.push({ home: bestSplit[0], away: bestSplit[1], sits: players.filter(function (p) { return !inMatch[p]; }) });
+      }
+      for (var i = 0; i < n; i++) if (rem[players[i]] !== 0) return null;
+      if (favTarget) cost += Math.abs(favCount - favTarget) * 300;
+      // spread of opponent counts barely matters; keep cost integer-ish for exact-zero detection
+      return { matches: matches, cost: Math.round(cost * 2) / 2 };
+    }
+  }
+  function perPlayerOptions(n) {
+    var out = [];
+    if (n < 4) return out;
+    for (var k = 1; k <= 12; k++) { var M = n * k / 4; if (Number.isInteger(M) && M <= 30) out.push(k); }
+    return out;
+  }
+  function defaultPer(n) {
+    var opts = perPlayerOptions(n), best = opts[0], bestD = Infinity;
+    opts.forEach(function (k) { var M = n * k / 4, d = Math.abs(M - 7) + (k < 3 ? 3 : 0); if (d < bestD) { bestD = d; best = k; } });
+    return best;
+  }
+
+  // ------------------------------------------------------------------
+  // Setup screen
+  // ------------------------------------------------------------------
+  var roster = REGULARS.slice();
+  var selected = {}; REGULARS.forEach(function (p) { selected[p] = true; });
+  var apart = {}; DEFAULT_APART.forEach(function (p) { apart[p] = true; });
+  var draft = null;
+  var rosterLoaded = false;
+
+  function chosen() { return roster.filter(function (p) { return selected[p]; }); }
+
+  function renderSetup() {
+    if (!rosterLoaded && data.roster && Array.isArray(data.roster)) {
+      rosterLoaded = true;
+      data.roster.forEach(function (p) { if (roster.indexOf(p) === -1) roster.push(p); });
+    }
+    var pc = $("playerChips"); pc.innerHTML = "";
+    roster.forEach(function (p) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip" + (selected[p] ? " on" : "");
+      b.setAttribute("aria-pressed", selected[p] ? "true" : "false");
+      b.innerHTML = esc(p) + (REGULARS.indexOf(p) === -1 ? '<span class="x" data-remove="1" aria-label="Remove">×</span>' : "");
+      b.addEventListener("click", function (e) {
+        if (e.target.getAttribute("data-remove")) {
+          roster.splice(roster.indexOf(p), 1); delete selected[p]; delete apart[p];
+          store.put("roster", roster.filter(function (x) { return REGULARS.indexOf(x) === -1; }));
+        } else selected[p] = !selected[p];
+        draft = null; renderSetup();
+      });
+      pc.appendChild(b);
+    });
+
+    var ac = $("apartChips"); ac.innerHTML = "";
+    var ch = chosen();
+    ch.forEach(function (p) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip apart" + (apart[p] ? " on" : "");
+      b.setAttribute("aria-pressed", apart[p] ? "true" : "false");
+      b.textContent = p;
+      b.addEventListener("click", function () { apart[p] = !apart[p]; draft = null; renderSetup(); });
+      ac.appendChild(b);
+    });
+    if (!ch.length) ac.innerHTML = '<span class="muted">Select players first.</span>';
+
+    var sel = $("perPlayer"), prev = +sel.value, opts = perPlayerOptions(ch.length);
+    sel.innerHTML = "";
+    opts.forEach(function (k) { var o = document.createElement("option"); o.value = k; o.textContent = k; sel.appendChild(o); });
+    if (opts.length) sel.value = opts.indexOf(prev) !== -1 && sel.dataset.touched ? prev : defaultPer(ch.length);
+    updatePerHint();
+    $("genBtn").disabled = ch.length < 4;
+    $("genErr").textContent = ch.length < 4 ? "Pick at least 4 players." : "";
+    renderPreview();
+    renderHistory();
+  }
+  function updatePerHint() {
+    var n = chosen().length, k = +$("perPlayer").value;
+    if (n < 4 || !k) { $("perHint").textContent = ""; return; }
+    var M = n * k / 4;
+    $("perHint").textContent = n + " players · " + M + " matches · each sits out " + (M - k);
+  }
+  $("perPlayer").addEventListener("change", function () { this.dataset.touched = "1"; draft = null; updatePerHint(); renderPreview(); });
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("addName").value.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+    var existing = roster.filter(function (p) { return p.toLowerCase() === name.toLowerCase(); })[0];
+    if (existing) selected[existing] = true;
+    else { roster.push(name); selected[name] = true; store.put("roster", roster.filter(function (x) { return REGULARS.indexOf(x) === -1; })); }
+    $("addName").value = ""; draft = null; renderSetup();
+  });
+
+  function makeDraft() {
+    var players = chosen(), k = +$("perPlayer").value;
+    var ap = players.filter(function (p) { return apart[p]; });
+    var res = generate(shuffle(players.slice()), k, ap);
+    if (!res) { $("genErr").textContent = "Couldn't build a schedule with those settings. Try a different number of matches."; draft = null; renderPreview(); return; }
+    $("genErr").textContent = "";
+    draft = { players: players, perPlayer: k, apart: ap, fixtures: res.matches, cost: res.cost };
+    renderPreview();
+    $("preview").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  $("genBtn").addEventListener("click", makeDraft);
+  $("reshuffle").addEventListener("click", makeDraft);
+
+  function renderPreview() {
+    var pv = $("preview");
+    if (!draft) { pv.hidden = true; return; }
+    pv.hidden = false;
+    var pc = partnerRepeats(draft.fixtures);
+    $("previewSummary").innerHTML = "<b>" + draft.fixtures.length + " matches</b>, everyone plays " + draft.perPlayer + ". " +
+      (pc === 0 ? "No partner plays together twice." : pc + " repeated partnership" + (pc > 1 ? "s" : "") + " (unavoidable with this many matches).");
+    $("previewList").innerHTML = draft.fixtures.map(function (f, i) { return fixtureHTML(f, i, false); }).join("");
+  }
+  function partnerRepeats(fx) {
+    var seen = {}, rep = 0;
+    fx.forEach(function (f) { [f.home, f.away].forEach(function (t) { var k = t.slice().sort().join("|"); if (seen[k]) rep++; seen[k] = 1; }); });
+    return rep;
+  }
+  $("startBtn").addEventListener("click", function () {
+    if (!draft) return;
+    var now = new Date();
+    var night = {
+      id: now.toISOString().slice(0, 10) + "-" + now.getTime().toString(36),
+      date: now.toISOString(),
+      players: draft.players, apart: draft.apart, perPlayer: draft.perPlayer,
+      fixtures: draft.fixtures,
+      scores: draft.fixtures.map(function () { return { h: -1, a: -1 }; })
+    };
+    draft = null;
+    store.put("current", night);
+    window.scrollTo(0, 0);
+  });
+
+  function renderHistory() {
+    var h = data.history || {}, ids = Object.keys(h).sort().reverse();
+    $("historyWrap").hidden = ids.length === 0;
+    $("historyList").innerHTML = ids.slice(0, 20).map(function (id) {
+      var n = h[id], table = standings(n), d = new Date(n.date);
+      var dateStr = isNaN(d) ? id : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      var top = table[0];
+      return "<li><b>" + esc(dateStr) + "</b><span>" + (top && top.p ? "🏆 " + esc(top.name) + " · " + top.pts + " pts" : "No results") + "</span></li>";
+    }).join("");
+  }
+
+  // ------------------------------------------------------------------
+  // Night screen
+  // ------------------------------------------------------------------
+  function sc(night, i) {
+    var s = (night.scores || [])[i] || {};
+    var h = s.h, a = s.a;
+    return [h === undefined || h === null || h < 0 ? null : h, a === undefined || a === null || a < 0 ? null : a];
+  }
+  function standings(night) {
+    var rows = {};
+    (night.players || []).forEach(function (p, idx) { rows[p] = { name: p, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, idx: idx }; });
+    (night.fixtures || []).forEach(function (f, i) {
+      var s = sc(night, i); if (s[0] === null || s[1] === null) return;
+      f.home.forEach(function (p) { if (rows[p]) tally(rows[p], s[0], s[1]); });
+      f.away.forEach(function (p) { if (rows[p]) tally(rows[p], s[1], s[0]); });
+    });
+    return Object.keys(rows).map(function (k) { var r = rows[k]; r.gd = r.gf - r.ga; r.pts = r.w * 3 + r.d; return r; })
+      .sort(function (x, y) { return (y.pts - x.pts) || (y.gd - x.gd) || (y.gf - x.gf) || (x.idx - y.idx); });
+  }
+  function tally(r, gf, ga) { r.p++; r.gf += gf; r.ga += ga; if (gf > ga) r.w++; else if (gf < ga) r.l++; else r.d++; }
+
+  function fixtureHTML(f, i, withInputs, night) {
+    var s = night ? sc(night, i) : [null, null];
+    function inp(side) {
+      var v = s[side];
+      return '<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="99" placeholder="–" aria-label="Match ' + (i + 1) + (side ? " away" : " home") + ' goals" data-i="' + i + '" data-side="' + side + '" value="' + (v === null ? "" : v) + '">';
+    }
+    var mid = withInputs ? '<div class="score">' + inp(0) + '<span class="dash">–</span>' + inp(1) + '</div>' : '<div class="dash">vs</div>';
+    return '<div class="match" id="' + (withInputs ? "m" : "p") + i + '">' +
+      '<div class="match-top"><div class="match-no">Match ' + (i + 1) + '</div>' +
+      (f.sits && f.sits.length ? '<div class="sits">Sits out <span>' + f.sits.map(esc).join(", ") + '</span></div>' : "") + '</div>' +
+      '<div class="line"><div class="team home"><span>' + esc(f.home[0]) + '</span><span>' + esc(f.home[1]) + '</span></div>' + mid +
+      '<div class="team away"><span>' + esc(f.away[0]) + '</span><span>' + esc(f.away[1]) + '</span></div></div>' +
+      (withInputs ? '<div class="result" id="r' + i + '"></div>' : "") + '</div>';
+  }
+
+  var builtFor = null;
+  function renderNight() {
+    var night = data.current;
+    var d = new Date(night.date);
+    $("title").textContent = "Rama Cup";
+    $("subtitle").textContent = (isNaN(d) ? "" : d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" }) + " · ") +
+      night.players.length + " players · " + night.fixtures.length + " matches";
+    $("legend").textContent = "Win 3 pts, draw 1, loss 0. Tiebreakers: goal difference, then goals scored. Everyone plays " + night.perPlayer + " matches." +
+      (night.apart && night.apart.length > 1 ? " " + night.apart.join(", ") + " never share a team." : "");
+
+    if (builtFor !== night.id) {
+      $("fixtures").innerHTML = night.fixtures.map(function (f, i) { return fixtureHTML(f, i, true, night); }).join("");
+      builtFor = night.id;
+    } else {
+      var inputs = $("fixtures").querySelectorAll("input");
+      for (var k = 0; k < inputs.length; k++) {
+        var el = inputs[k]; if (el === document.activeElement) continue;
+        var v = sc(night, +el.dataset.i)[+el.dataset.side];
+        var want = v === null ? "" : String(v);
+        if (el.value !== want) el.value = want;
+      }
+    }
+
+    var list = standings(night), done = 0;
+    night.fixtures.forEach(function (f, i) {
+      var s = sc(night, i), card = $("m" + i), res = $("r" + i);
+      if (s[0] !== null && s[1] !== null) {
+        done++; card.classList.add("done");
+        res.innerHTML = s[0] > s[1] ? "<b>" + esc(f.home.join(" + ")) + "</b> win" : s[1] > s[0] ? "<b>" + esc(f.away.join(" + ")) + "</b> win" : "Draw — 1 point each";
+      } else { card.classList.remove("done"); res.textContent = ""; }
+    });
+    $("played").textContent = done; $("total").textContent = night.fixtures.length;
+
+    $("tbody").innerHTML = list.map(function (r, i) {
+      var leader = done > 0 && i === 0 && list[1] && (r.pts > list[1].pts || r.gd > list[1].gd || r.gf > list[1].gf);
+      var gdc = r.gd > 0 ? "plus" : r.gd < 0 ? "minus" : "";
+      return '<tr class="' + (leader ? "leader" : "") + '"><td class="pos">' + (i + 1) + '</td><td class="name">' + esc(r.name) + '</td>' +
+        '<td>' + r.p + '</td><td>' + r.w + '</td><td>' + r.d + '</td><td>' + r.l + '</td><td>' + r.gf + '</td><td>' + r.ga + '</td>' +
+        '<td class="gd ' + gdc + '">' + (r.gd > 0 ? "+" : "") + r.gd + '</td><td class="pts">' + r.pts + '</td></tr>';
+    }).join("");
+
+    var fin = $("final"), champ = $("champ");
+    if (done === night.fixtures.length && list.length > 1) {
+      var top = list[0], second = list[1];
+      var tied = top.pts === second.pts && top.gd === second.gd && top.gf === second.gf;
+      if (tied) {
+        $("finalTitle").textContent = "Night finished — top two level";
+        $("finalText").textContent = top.name + " and " + second.name + " are level on points, goal difference and goals scored. Settle it with a 1v1 decider.";
+        fin.classList.add("show"); champ.classList.remove("show");
+      } else {
+        $("champName").textContent = top.name;
+        $("champStat").textContent = top.w + " wins from " + top.p + ", " + top.pts + " points, GD " + (top.gd > 0 ? "+" : "") + top.gd;
+        champ.classList.add("show"); fin.classList.remove("show");
+      }
+    } else { fin.classList.remove("show"); champ.classList.remove("show"); }
+  }
+
+  var pending = {};
+  $("fixtures").addEventListener("input", function (e) {
+    var t = e.target; if (t.tagName !== "INPUT" || !data.current) return;
+    var i = +t.dataset.i;
+    var row = t.closest(".match").querySelectorAll("input");
+    var h = num(row[0].value), a = num(row[1].value);
+    clearTimeout(pending[i]);
+    pending[i] = setTimeout(function () {
+      store.put("current/scores/" + i, { h: h === null ? -1 : h, a: a === null ? -1 : a });
+    }, 500);
+    // reflect immediately on this screen
+    if (!data.current.scores) data.current.scores = [];
+    data.current.scores[i] = { h: h === null ? -1 : h, a: a === null ? -1 : a };
+    renderNight();
+  });
+
+  var endArmed = false, endTimer = null;
+  $("endBtn").addEventListener("click", function () {
+    var btn = this;
+    if (!endArmed) {
+      endArmed = true; btn.textContent = "Tap again to confirm";
+      endTimer = setTimeout(function () { endArmed = false; btn.innerHTML = "End night &amp; start new"; }, 3000);
+      return;
+    }
+    clearTimeout(endTimer); endArmed = false; btn.innerHTML = "End night &amp; start new";
+    var night = data.current; if (!night) return;
+    var anyPlayed = night.fixtures.some(function (f, i) { var s = sc(night, i); return s[0] !== null && s[1] !== null; });
+    var p = anyPlayed ? store.put("history/" + night.id, night) : Promise.resolve();
+    p.then(function () { store.put("current", null); });
+    builtFor = null;
+  });
+
+  // ------------------------------------------------------------------
+  function afterChange() {
+    if (data.current && data.current.fixtures) {
+      $("setup").hidden = true; $("night").hidden = false; $("progress").hidden = false;
+      renderNight();
+    } else {
+      $("night").hidden = true; $("setup").hidden = false; $("progress").hidden = true;
+      $("title").textContent = "Rama Cup"; $("subtitle").textContent = "2v2 league · individual standings";
+      builtFor = null;
+      renderSetup();
+    }
+  }
+
+  window.__fifa = { generate: generate, perPlayerOptions: perPlayerOptions };
+  connect();
+})();
+</script>
+</body>
+</html>
